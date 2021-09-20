@@ -1,0 +1,27 @@
+main{
+  position: relative;
+  height: 100vh;
+}
+.main{
+  padding: 25px;
+  width: 1120px;
+  height: 450px;
+  position: absolute;
+  left: 50%;
+  top:50%;
+  transform: translate(-50%,-50%);
+  background-image: url($img+"/main/main.webp");
+  background-size: cover;
+  &__title{
+    font-size:  38px;
+    color: #fff;
+    display: inline-block;
+   & +a{
+     font-size:  48px;
+     text-decoration: underline;
+     margin-left: 552px;
+     display: inline-block;
+   color: #FFF;
+   }
+  }
+}
