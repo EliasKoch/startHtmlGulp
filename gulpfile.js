@@ -2,6 +2,8 @@ const fileswatch = "html,htm,txt,json,md";
 const baseUrlSrs = "dev/src"
 const baseUrlDist = "dev/assets"
 import pkg from "gulp";
+import {webpack_conf_default} from './webpack.default.js'
+import {webpack_conf_vue} from './webpack.vue.js'
 
 const {gulp, src, dest, parallel, series, watch} = pkg;
 import browserSync from "browser-sync";
@@ -9,7 +11,6 @@ import bssi from "browsersync-ssi";
 import ssi from "ssi";
 import webpackStream from "webpack-stream";
 import webpack from "webpack";
-import TerserPlugin from "terser-webpack-plugin";
 import gulpSass from "gulp-sass";
 import dartSass from "sass";
 import sassglob from "gulp-sass-glob";
@@ -75,51 +76,28 @@ function browsersync() {
 
 function scripts() {
     // let plugins = {};
-    let optionMode;
-    let optionDefault = {
-        performance: {hints: false},
-        // plugins: [plugins],
-        module: {
-            rules: [
-                {
-                    test: /\.m?js$/,
-                    exclude: /(node_modules)/,
-                    use: {
-                        loader: "babel-loader",
-                        options: {
-                            presets: ["@babel/preset-env"],
-                            plugins: ["babel-plugin-root-import", '@babel/plugin-transform-runtime'],
-                        },
-                    },
-                },
-            ],
-        },
-        optimization: {
-            minimize: true,
-            minimizer: [
-                new TerserPlugin({
-                    terserOptions: {format: {comments: false}},
-                    extractComments: false,
-                }),
-            ],
-        }
-    };
-    switch (param) {
-        case '--dev':
-            optionMode = {
-                mode: 'development',
-            }
-            break;
-        case '--build':
-            optionMode = {
-                mode: 'production',
-            }
-    }
-    let option = Object.assign({}, optionMode, optionDefault);
+
+    // switch (param) {
+    //     case '--dev':
+    //         optionMode = {
+    //             mode: 'development',
+    //         }
+    //         break;
+    //     case '--build':
+    //         optionMode = {
+    //             mode: 'production',
+    //         }
+    // }
     return src([`${baseUrlSrs}/js/app.js`])
-        .pipe(webpackStream(option, webpack))
+        .pipe(webpackStream(webpack_conf_default, webpack))
         .pipe(concat("app.min.js"))
         .pipe(dest(`${baseUrlDist}`))
+        .pipe(browserSync.stream());
+}
+function vue() {
+    return src([`${baseUrlSrs}/vue/app.js`])
+        .pipe(webpackStream(webpack_conf_vue, webpack))
+        .pipe(dest(`${baseUrlDist}/vue/`))
         .pipe(browserSync.stream());
 }
 
@@ -144,18 +122,10 @@ function styles() {
         .pipe(gulpif(is_dev,
             postCss([autoprefixer({grid: "autoplace"})]),
             postCss([autoprefixer({grid: "autoplace"}), cssnano({preset: ["default", {discardComments: {removeAll: true}}]}),
-        ])))
+            ])))
         .pipe(concat("app.min.css"))
         .pipe(gulpif(is_dev, sourcemaps.write()))
         .pipe(dest(`${baseUrlDist}`))
-        .pipe(browserSync.stream());
-}
-
-function images() {
-    return src([`${baseUrlSrs}/images/**/*`])
-        .pipe(changed(`${baseUrlDist}/images`))
-        .pipe(imagemin())
-        .pipe(dest(`${baseUrlDist}/images`))
         .pipe(browserSync.stream());
 }
 
@@ -166,19 +136,33 @@ function fonts() {
         .pipe(browserSync.stream());
 }
 
-function images_webp() {
-    return src([`${baseUrlSrs}/images/**/*`, `!${baseUrlSrs}/images/**/*.svg`])
+function images() {
+    return src([`${baseUrlSrs}/images/**/*`,`!${baseUrlSrs}/images/no_compress/**/*`])
         .pipe(changed(`${baseUrlDist}/images`))
+        .pipe(imagemin())
+        .pipe(dest(`${baseUrlDist}/images`))
+        .pipe(browserSync.stream());
+}
+function images_webp() {
+    return src([`${baseUrlSrs}/images/**/*`, `!${baseUrlSrs}/images/**/*.svg`,`!${baseUrlSrs}/images/no_compress/**/*`])
+        .pipe(changed(`${baseUrlDist}/images`,{extension: '.webp'}))
         .pipe(webp())
         .pipe(dest(`${baseUrlDist}/images`))
         .pipe(browserSync.stream());
 }
 
+function images_no_compres() {
+    return src([`${baseUrlSrs}/images/no_compress/**/*`])
+        .pipe(changed(`${baseUrlDist}/images/no_compress`))
+        .pipe(dest(`${baseUrlDist}/images/no_compress`))
+        .pipe(browserSync.stream());
+}
 
 function startwatch() {
     watch(`${baseUrlSrs}/styles/**/*`, {usePolling: true}, styles);
     watch(`${baseUrlSrs}/js/**/*`, {usePolling: true}, scripts);
-    watch(`${baseUrlSrs}/images/**/*`, {usePolling: true}, parallel(images, images_webp));
+    watch(`${baseUrlSrs}/vue/**/*`, {usePolling: true}, vue);
+    watch([`${baseUrlSrs}/images/**/*`], {usePolling: true}, parallel(images, images_webp,images_no_compres));
     watch(`${baseUrlSrs}/fonts/**/*`, {usePolling: true}, fonts);
     watch(`dev/**/*.{${fileswatch}}`, {usePolling: true}).on(
         "change",
@@ -241,15 +225,14 @@ function smartGrid(done) {
 }
 
 
-export {scripts, styles, images, images_webp, smartGrid, fonts, deploy};
-export let assets = series(scripts, styles, parallel(images, images_webp,));
+export {scripts, styles,vue, images, images_webp,images_no_compres, smartGrid, fonts, deploy};
+export let assets = series(scripts, styles,vue, parallel(images, images_webp,images_no_compres));
 export default series((done) => {
         param = '--dev';
         done()
     },
-    scripts,
-    styles, 
-    parallel(images, images_webp, fonts),
+
+    parallel(scripts,vue, styles,images, images_webp,images_no_compres, fonts),
     parallel(browsersync, startwatch)
 );
 
