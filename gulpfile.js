@@ -248,7 +248,7 @@ export default series((done) => {
         done()
     },
     scripts,
-    styles,
+    styles, 
     parallel(images, images_webp, fonts),
     parallel(browsersync, startwatch)
 );
@@ -265,7 +265,7 @@ export let build = series(
     buildcopy,
     buildhtml
 );
- 
+
 
 //
 
